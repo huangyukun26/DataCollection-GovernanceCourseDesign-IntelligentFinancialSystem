@@ -13,4 +13,8 @@ pydantic-settings>=2.0.0
 pytesseract
 opencv-python-headless
 numpy
-pillow 
+pillow
+paddleocr
+aiofiles>=0.8.0
+alembic>=1.7.0
+python-magic>=0.4.24 

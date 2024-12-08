@@ -10,15 +10,24 @@ services:
     volumes:
       - ../:/app
     depends_on:
-      - postgres
-      - mongodb
-      - minio
+      postgres:
+        condition: service_healthy
+      mongodb:
+        condition: service_started
+      minio:
+        condition: service_started
     environment:
       - DATABASE_URL=postgresql://user:password@postgres:5432/financial_data
       - MONGODB_URL=mongodb://mongodb:27017/
       - MINIO_URL=minio:9000
       - MINIO_ACCESS_KEY=minioadmin
       - MINIO_SECRET_KEY=minioadmin
+    command: >
+      bash -c "cd /app &&
+              sleep 5 &&
+              python -c 'from app.db.database import Base, engine; Base.metadata.drop_all(engine)' &&
+              alembic upgrade head && 
+              uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 
   postgres:
     image: postgres:13
@@ -30,6 +39,12 @@ services:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d financial_data"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
   mongodb:
     image: mongo:4.4
@@ -49,6 +64,30 @@ services:
       - MINIO_ROOT_USER=minioadmin
       - MINIO_ROOT_PASSWORD=minioadmin
     command: server /data --console-address ":9001"
+
+  test:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    volumes:
+      - ../:/app
+    depends_on:
+      web:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    environment:
+      - API_URL=http://web:8000
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app
+    command: >
+      bash -c "cd /app &&
+              sleep 15 &&
+              pip install requests pytest pillow &&
+              echo 'Creating test data...' &&
+              python tests/prepare_test_data.py &&
+              echo 'Starting tests...' &&
+              python tests/test_invoice.py"
 
 volumes:
   postgres_data:

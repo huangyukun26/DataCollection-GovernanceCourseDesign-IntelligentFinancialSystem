@@ -1,29 +1,42 @@
-from fastapi import FastAPI, Request
-from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
-from pathlib import Path
-
-app = FastAPI(title="智慧金融数据采集系统")
-
-# 挂载静态文件
-app.mount("/static", StaticFiles(directory=Path(__file__).parent / "static"), name="static")
-
-# 设置模板
-templates = Jinja2Templates(directory=Path(__file__).parent / "templates")
-
-# 页面路由
-@app.get("/")
-async def home(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
-
-@app.get("/invoices")
-async def invoice_list(request: Request):
-    return templates.TemplateResponse("invoices/list.html", {"request": request})
-
-@app.get("/invoices/upload")
-async def invoice_upload(request: Request):
-    return templates.TemplateResponse("invoices/upload.html", {"request": request})
-
-# 导入API路由
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from app.api.endpoints import invoice
-app.include_router(invoice.router, prefix="/api/invoices", tags=["invoices"])
+from app.db.base_class import Base
+from app.db.session import engine
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
+
+# 创建数据库表
+Base.metadata.create_all(bind=engine)
+
+app = FastAPI(
+    title="智慧金融数据采集系统",
+    description="发票识别与管理系统",
+    version="1.0.0"
+)
+
+# 配置CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 在生产环境中应该设置具体的域名
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# 配置文件上传大小限制为10MB
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# 注册路由
+app.include_router(
+    invoice.router,
+    prefix="/api/invoices",
+    tags=["发票管理"]
+)
+
+@app.get("/")
+async def root():
+    return {
+        "message": "欢迎使用智慧金融数据采集系统",
+        "version": "1.0.0"
+    }

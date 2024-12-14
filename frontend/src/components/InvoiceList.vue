@@ -30,17 +30,22 @@
         style="width: 100%"
         v-loading="loading"
         border
+        :lazy="true"
+        :max-height="500"
+        table-layout="fixed"
+        size="default"
+        :default-sort="{ prop: 'invoice_date', order: 'descending' }"
       >
-        <el-table-column prop="invoice_code" label="发票代码" width="180" />
-        <el-table-column prop="invoice_number" label="发票号码" width="180" />
-        <el-table-column prop="invoice_date" label="开票日期" width="120" />
-        <el-table-column prop="total_amount" label="金额" width="120">
+        <el-table-column prop="invoice_code" label="发票代码" width="180" show-overflow-tooltip />
+        <el-table-column prop="invoice_number" label="发票号码" width="180" show-overflow-tooltip />
+        <el-table-column prop="invoice_date" label="开票日期" width="120" sortable />
+        <el-table-column prop="total_amount" label="金额" width="120" align="right">
           <template #default="scope">
             ¥{{ scope.row.total_amount }}
           </template>
         </el-table-column>
-        <el-table-column prop="seller" label="销售方" />
-        <el-table-column prop="buyer" label="购买方" />
+        <el-table-column prop="seller" label="销售方" show-overflow-tooltip min-width="200" />
+        <el-table-column prop="buyer" label="购买方" show-overflow-tooltip min-width="200" />
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="scope">
             <el-button
@@ -75,35 +80,79 @@
       </div>
     </el-card>
 
-    <!-- 发票详情对话��� -->
+    <!-- 发票详情对话框 -->
     <el-dialog
       v-model="dialogVisible"
       title="发票详情"
-      width="50%"
+      width="70%"
+      :destroy-on-close="true"
+      :close-on-click-modal="false"
+      @open="handleDialogOpen"
     >
-      <el-descriptions :column="1" border>
-        <el-descriptions-item label="发票代码">
-          {{ currentInvoice?.invoice_code }}
-        </el-descriptions-item>
-        <el-descriptions-item label="发票号码">
-          {{ currentInvoice?.invoice_number }}
-        </el-descriptions-item>
-        <el-descriptions-item label="开票日期">
-          {{ currentInvoice?.invoice_date }}
-        </el-descriptions-item>
-        <el-descriptions-item label="金额">
-          ¥{{ currentInvoice?.total_amount }}
-        </el-descriptions-item>
-        <el-descriptions-item label="税额">
-          ¥{{ currentInvoice?.tax_amount }}
-        </el-descriptions-item>
-        <el-descriptions-item label="销售方">
-          {{ currentInvoice?.seller }}
-        </el-descriptions-item>
-        <el-descriptions-item label="购买方">
-          {{ currentInvoice?.buyer }}
-        </el-descriptions-item>
-      </el-descriptions>
+      <template #default>
+        <div v-loading="dialogLoading">
+          <el-descriptions :column="2" border>
+            <el-descriptions-item label="发票代码">
+              {{ currentInvoice?.invoice_code }}
+            </el-descriptions-item>
+            <el-descriptions-item label="发票号码">
+              {{ currentInvoice?.invoice_number }}
+            </el-descriptions-item>
+            <el-descriptions-item label="开票日期">
+              {{ currentInvoice?.invoice_date }}
+            </el-descriptions-item>
+            <el-descriptions-item label="金额">
+              ¥{{ currentInvoice?.total_amount }}
+            </el-descriptions-item>
+            <el-descriptions-item label="税额">
+              ¥{{ currentInvoice?.tax_amount }}
+            </el-descriptions-item>
+            <el-descriptions-item label="价税合计">
+              ¥{{ calculateTotal(currentInvoice?.total_amount, currentInvoice?.tax_amount) }}
+            </el-descriptions-item>
+            <el-descriptions-item label="销售方" :span="2">
+              {{ currentInvoice?.seller }}
+            </el-descriptions-item>
+            <el-descriptions-item label="购买方" :span="2">
+              {{ currentInvoice?.buyer }}
+            </el-descriptions-item>
+          </el-descriptions>
+
+          <!-- 商品明细表格 -->
+          <div class="items-table" style="margin-top: 20px;">
+            <h3>商品明细</h3>
+            <el-table
+              ref="itemsTable"
+              :data="currentInvoice?.items || []"
+              style="width: 100%"
+              border
+              stripe
+              :lazy="true"
+              :max-height="300"
+              table-layout="fixed"
+              size="default"
+              v-if="dialogVisible"
+            >
+              <el-table-column prop="item_name" label="商品名称" min-width="200" show-overflow-tooltip />
+              <el-table-column prop="quantity" label="数量" width="100" align="right">
+                <template #default="scope">
+                  {{ scope.row.quantity }} {{ scope.row.unit }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="unit_price" label="单价" width="120" align="right">
+                <template #default="scope">
+                  ¥{{ formatNumber(scope.row.unit_price) }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="amount" label="金额" width="120" align="right">
+                <template #default="scope">
+                  ¥{{ formatNumber(scope.row.amount) }}
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </div>
+      </template>
     </el-dialog>
 
     <!-- 删除确认对话框 -->
@@ -124,7 +173,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import axios from 'axios'
@@ -139,6 +188,8 @@ const dialogVisible = ref(false)
 const currentInvoice = ref(null)
 const deleteDialogVisible = ref(false)
 const invoiceToDelete = ref(null)
+const dialogLoading = ref(false)
+const itemsTable = ref(null)
 
 // 获取发票列表
 const fetchInvoices = async () => {
@@ -168,10 +219,45 @@ const handleSearch = () => {
   currentPage.value = 1
 }
 
+// 格式化数字
+const formatNumber = (num) => {
+  if (!num) return '0.00'
+  return Number(num).toFixed(2)
+}
+
+// 计算价税���计
+const calculateTotal = (amount, tax) => {
+  const total = (Number(amount) || 0) + (Number(tax) || 0)
+  return formatNumber(total)
+}
+
+// 处理对话框打开事件
+const handleDialogOpen = () => {
+  nextTick(() => {
+    if (itemsTable.value) {
+      itemsTable.value.doLayout()
+    }
+  })
+}
+
 // 查看发票详情
-const viewInvoice = (invoice) => {
-  currentInvoice.value = invoice
+const viewInvoice = async (invoice) => {
+  dialogLoading.value = true
   dialogVisible.value = true
+  
+  try {
+    // 获取发票详细信息，包括商品明细
+    const response = await axios.get(`/api/invoices/${invoice.id}`)
+    if (response.data.status === 'success') {
+      currentInvoice.value = response.data.data
+    } else {
+      ElMessage.error('获取发票详情失败')
+    }
+  } catch (error) {
+    ElMessage.error('获取发票详情失败：' + error.message)
+  } finally {
+    dialogLoading.value = false
+  }
 }
 
 // 处理删除

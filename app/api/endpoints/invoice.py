@@ -7,6 +7,7 @@ import traceback
 from app.services.ocr_service import OCRService
 from app.db.session import get_db
 from app.models.invoice import Invoice
+from app.models.invoice_item import InvoiceItem
 from app.utils.storage import MinioStorage
 from app.schemas.invoice import Invoice as InvoiceSchema
 
@@ -19,9 +20,7 @@ async def upload_invoice(
     file: UploadFile = File(..., description="发票图片文件(最大10MB)"),
     db: Session = Depends(get_db)
 ):
-    """
-    上传并识别发票
-    """
+    """上传并识别发票"""
     try:
         # 检查文件大小
         file_size = 0
@@ -70,6 +69,29 @@ async def upload_invoice(
         )
         
         db.add(invoice)
+        db.flush()  # 获取invoice.id
+
+        # 保存商品明细
+        if "items" in invoice_data and invoice_data["items"]:
+            for item_data in invoice_data["items"]:
+                # 如果item_data是字符串，创建只有名称的商品明细
+                if isinstance(item_data, str):
+                    item = InvoiceItem(
+                        invoice_id=invoice.id,
+                        item_name=item_data
+                    )
+                # 如果item_data是字典，创建完整的商品明细
+                else:
+                    item = InvoiceItem(
+                        invoice_id=invoice.id,
+                        item_name=item_data.get("item_name", ""),
+                        quantity=item_data.get("quantity"),
+                        unit=item_data.get("unit"),
+                        unit_price=item_data.get("unit_price"),
+                        amount=item_data.get("amount")
+                    )
+                db.add(item)
+        
         db.commit()
         db.refresh(invoice)
         
@@ -123,14 +145,45 @@ async def list_invoices(db: Session = Depends(get_db)):
             detail=f"获取发票列表失败: {str(e)}"
         )
 
-@router.get("/{invoice_id}", response_model=InvoiceSchema)
+@router.get("/{invoice_id}")
 async def get_invoice(invoice_id: int, db: Session = Depends(get_db)):
     """获取单个发票详情"""
     try:
+        # 使用join查询同时获取发票和商品明细
         invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
         if not invoice:
             raise HTTPException(status_code=404, detail="发票不存在")
-        return InvoiceSchema.from_orm(invoice)
+
+        # 转换为响应格式
+        result = {
+            "id": invoice.id,
+            "invoice_code": invoice.invoice_code,
+            "invoice_number": invoice.invoice_number,
+            "invoice_date": invoice.invoice_date,
+            "total_amount": invoice.total_amount,
+            "tax_amount": invoice.tax_amount,
+            "seller": invoice.seller,
+            "buyer": invoice.buyer,
+            "file_path": invoice.file_path,
+            "created_at": invoice.created_at,
+            "updated_at": invoice.updated_at,
+            "items": [
+                {
+                    "id": item.id,
+                    "item_name": item.item_name,
+                    "quantity": item.quantity,
+                    "unit": item.unit,
+                    "unit_price": item.unit_price,
+                    "amount": item.amount
+                }
+                for item in invoice.items
+            ]
+        }
+        
+        return {
+            "status": "success",
+            "data": result
+        }
     except HTTPException as e:
         raise e
     except Exception as e:
@@ -156,7 +209,7 @@ async def delete_invoice(invoice_id: int, db: Session = Depends(get_db)):
             print(f"删除MinIO文件失败: {str(e)}")
             # 继续执行，即使文件删除失败
         
-        # 从数据库中删除记录
+        # 从数据库中删除记录（商品明细会自动级联删除）
         db.delete(invoice)
         db.commit()
         

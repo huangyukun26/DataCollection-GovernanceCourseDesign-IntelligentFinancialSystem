@@ -9,7 +9,7 @@ from app.db.session import get_db
 from app.models.invoice import Invoice
 from app.models.invoice_item import InvoiceItem
 from app.utils.storage import MinioStorage
-from app.schemas.invoice import Invoice as InvoiceSchema
+from app.schemas.invoice import Invoice as InvoiceSchema, InvoiceBase
 
 router = APIRouter()
 ocr_service = OCRService()
@@ -35,7 +35,7 @@ async def upload_invoice(
             file_size += len(chunk)
             contents.extend(chunk)
             
-            # 检查文件大小是否超过限制 (10MB)
+            # 检查文件大小是��超过限制 (10MB)
             if file_size > 10 * 1024 * 1024:
                 raise HTTPException(
                     status_code=413,
@@ -71,7 +71,7 @@ async def upload_invoice(
         db.add(invoice)
         db.flush()  # 获取invoice.id
 
-        # 保存商品明细
+        # 保存��品明细
         if "items" in invoice_data and invoice_data["items"]:
             for item_data in invoice_data["items"]:
                 # 如果item_data是字符串，创建只有名称的商品明细
@@ -120,26 +120,48 @@ async def list_invoices(db: Session = Depends(get_db)):
     """获取发票列表"""
     try:
         invoices = db.query(Invoice).all()
-        return {
-            "status": "success",
-            "data": [
-                {
+        result = []
+        for invoice in invoices:
+            try:
+                # 安全地转换金额字段
+                try:
+                    total_amount = float(invoice.total_amount.replace(',', '')) if invoice.total_amount else 0.0
+                except (ValueError, AttributeError):
+                    total_amount = 0.0
+                
+                try:
+                    tax_amount = float(invoice.tax_amount.replace(',', '')) if invoice.tax_amount else 0.0
+                except (ValueError, AttributeError):
+                    tax_amount = 0.0
+                
+                invoice_data = {
                     "id": invoice.id,
-                    "invoice_code": invoice.invoice_code,
-                    "invoice_number": invoice.invoice_number,
-                    "invoice_date": invoice.invoice_date,
-                    "total_amount": invoice.total_amount,
-                    "tax_amount": invoice.tax_amount,
-                    "seller": invoice.seller,
-                    "buyer": invoice.buyer,
-                    "file_path": invoice.file_path,
+                    "invoice_code": invoice.invoice_code or "",
+                    "invoice_number": invoice.invoice_number or "",
+                    "invoice_date": invoice.invoice_date or "",
+                    "total_amount": str(round(total_amount, 2)),
+                    "tax_amount": str(round(tax_amount, 2)),
+                    "seller": invoice.seller or "",
+                    "buyer": invoice.buyer or "",
+                    "file_path": invoice.file_path or "",
                     "created_at": invoice.created_at,
                     "updated_at": invoice.updated_at
                 }
-                for invoice in invoices
-            ]
+                result.append(invoice_data)
+            except Exception as item_error:
+                print(f"处理单个发票时出错 (ID: {invoice.id}): {str(item_error)}")
+                continue
+        
+        return {
+            "status": "success",
+            "data": result
         }
     except Exception as e:
+        print(f"获取发票列表时出错: {str(e)}")
+        print(f"错误类型: {type(e)}")
+        import traceback
+        print(traceback.format_exc())
+        db.rollback()
         raise HTTPException(
             status_code=500,
             detail=f"获取发票列表失败: {str(e)}"
@@ -225,4 +247,47 @@ async def delete_invoice(invoice_id: int, db: Session = Depends(get_db)):
         raise HTTPException(
             status_code=500,
             detail=f"删除发票失败: {str(e)}"
+        )
+
+@router.put("/{invoice_id}")
+async def update_invoice(invoice_id: int, invoice_data: InvoiceBase, db: Session = Depends(get_db)):
+    """更新发票信息"""
+    try:
+        # 查找发票
+        invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+        if not invoice:
+            raise HTTPException(status_code=404, detail="发票不存在")
+        
+        # 更新发票信息
+        for field, value in invoice_data.dict(exclude_unset=True).items():
+            setattr(invoice, field, value)
+        
+        db.commit()
+        db.refresh(invoice)
+        
+        return {
+            "status": "success",
+            "message": "发票更新成功",
+            "data": {
+                "id": invoice.id,
+                "invoice_code": invoice.invoice_code,
+                "invoice_number": invoice.invoice_number,
+                "invoice_date": invoice.invoice_date,
+                "total_amount": invoice.total_amount,
+                "tax_amount": invoice.tax_amount,
+                "seller": invoice.seller,
+                "buyer": invoice.buyer,
+                "file_path": invoice.file_path,
+                "created_at": invoice.created_at,
+                "updated_at": invoice.updated_at
+            }
+        }
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        print(f"更新发票失败: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail=f"更新发票失败: {str(e)}"
         ) 

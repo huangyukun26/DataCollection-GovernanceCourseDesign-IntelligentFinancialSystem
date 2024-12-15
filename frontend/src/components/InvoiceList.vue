@@ -56,6 +56,13 @@
               查看
             </el-button>
             <el-button
+              type="warning"
+              link
+              @click="handleEdit(scope.row)"
+            >
+              编辑
+            </el-button>
+            <el-button
               type="danger"
               link
               @click="handleDelete(scope.row)"
@@ -169,6 +176,72 @@
         </span>
       </template>
     </el-dialog>
+
+    <!-- 编辑对话框 -->
+    <el-dialog
+      v-model="editDialogVisible"
+      title="编辑发票"
+      width="50%"
+      :destroy-on-close="true"
+      :close-on-click-modal="false"
+    >
+      <template #default>
+        <el-form
+          ref="editFormRef"
+          :model="editForm"
+          :rules="editRules"
+          label-width="100px"
+          style="max-width: 600px"
+        >
+          <el-form-item label="发票代码" prop="invoice_code">
+            <el-input v-model="editForm.invoice_code" />
+          </el-form-item>
+          <el-form-item label="发票号码" prop="invoice_number">
+            <el-input v-model="editForm.invoice_number" />
+          </el-form-item>
+          <el-form-item label="开票日期" prop="invoice_date">
+            <el-date-picker
+              v-model="editForm.invoice_date"
+              type="date"
+              placeholder="选择日期"
+              style="width: 100%"
+            />
+          </el-form-item>
+          <el-form-item label="金额" prop="total_amount">
+            <el-input-number
+              v-model="editForm.total_amount"
+              :precision="2"
+              :step="0.01"
+              :min="0"
+              style="width: 100%"
+            />
+          </el-form-item>
+          <el-form-item label="税额" prop="tax_amount">
+            <el-input-number
+              v-model="editForm.tax_amount"
+              :precision="2"
+              :step="0.01"
+              :min="0"
+              style="width: 100%"
+            />
+          </el-form-item>
+          <el-form-item label="销售方" prop="seller">
+            <el-input v-model="editForm.seller" />
+          </el-form-item>
+          <el-form-item label="购买方" prop="buyer">
+            <el-input v-model="editForm.buyer" />
+          </el-form-item>
+        </el-form>
+      </template>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="editDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="submitEdit" :loading="editLoading">
+            确定
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -190,6 +263,26 @@ const deleteDialogVisible = ref(false)
 const invoiceToDelete = ref(null)
 const dialogLoading = ref(false)
 const itemsTable = ref(null)
+const editDialogVisible = ref(false)
+const editForm = ref({})
+const editFormRef = ref(null)
+const editLoading = ref(false)
+
+// 表单验证规则
+const editRules = ref({
+  invoice_code: [
+    { min: 10, max: 12, message: '发票代码长度应为10-12位', trigger: 'blur' }
+  ],
+  invoice_number: [
+    { min: 8, max: 8, message: '发票号码长度应为8位', trigger: 'blur' }
+  ],
+  total_amount: [
+    { type: 'number', min: 0, message: '金额不能小于0', trigger: 'blur' }
+  ],
+  tax_amount: [
+    { type: 'number', min: 0, message: '税额不能小于0', trigger: 'blur' }
+  ]
+})
 
 // 获取发票列表
 const fetchInvoices = async () => {
@@ -214,7 +307,7 @@ const refreshList = () => {
   fetchInvoices()
 }
 
-// 搜索处理
+// ��索处理
 const handleSearch = () => {
   currentPage.value = 1
 }
@@ -225,7 +318,7 @@ const formatNumber = (num) => {
   return Number(num).toFixed(2)
 }
 
-// 计算价税���计
+// 计算价税合计
 const calculateTotal = (amount, tax) => {
   const total = (Number(amount) || 0) + (Number(tax) || 0)
   return formatNumber(total)
@@ -246,7 +339,7 @@ const viewInvoice = async (invoice) => {
   dialogVisible.value = true
   
   try {
-    // 获取发票详细信息，包括商品明细
+    // 获取发票详细信息包括商品明细
     const response = await axios.get(`/api/invoices/${invoice.id}`)
     if (response.data.status === 'success') {
       currentInvoice.value = response.data.data
@@ -312,6 +405,65 @@ const filteredInvoices = computed(() => {
 onMounted(() => {
   fetchInvoices()
 })
+
+// 处理编辑按钮点击
+const handleEdit = (invoice) => {
+  editForm.value = {
+    id: invoice.id,
+    invoice_code: invoice.invoice_code,
+    invoice_number: invoice.invoice_number,
+    invoice_date: invoice.invoice_date,
+    total_amount: invoice.total_amount ? Number(invoice.total_amount) : null,
+    tax_amount: invoice.tax_amount ? Number(invoice.tax_amount) : null,
+    seller: invoice.seller,
+    buyer: invoice.buyer
+  }
+  editDialogVisible.value = true
+}
+
+// 提交编辑
+const submitEdit = async () => {
+  if (!editFormRef.value) return
+  
+  await editFormRef.value.validate(async (valid) => {
+    if (valid) {
+      editLoading.value = true
+      try {
+        // 只提交已修改的字段
+        const updateData = {}
+        const originalForm = editForm.value
+        
+        // 检查每个字段是否有值且不为空
+        for (const key in originalForm) {
+          if (key === 'id') continue
+          
+          const value = originalForm[key]
+          if (value !== null && value !== undefined && value !== '') {
+            // 处理数字类型
+            if (key === 'total_amount' || key === 'tax_amount') {
+              updateData[key] = Number(value)
+            } else {
+              updateData[key] = value
+            }
+          }
+        }
+        
+        const response = await axios.put(`/api/invoices/${editForm.value.id}`, updateData)
+        if (response.data.status === 'success') {
+          ElMessage.success('编辑成功')
+          editDialogVisible.value = false
+          refreshList()
+        } else {
+          ElMessage.error('编辑失败')
+        }
+      } catch (error) {
+        ElMessage.error('编辑失败：' + (error.response?.data?.detail || error.message))
+      } finally {
+        editLoading.value = false
+      }
+    }
+  })
+}
 </script>
 
 <style scoped>

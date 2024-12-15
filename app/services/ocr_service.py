@@ -157,7 +157,7 @@ class OCRService:
             # 第一遍扫描: 提取数字、金额和税率
             for text, confidence, pos in texts_with_pos:
                 # 清理文本
-                text = text.replace('¥', '').replace('￥', '').replace(',', '')
+                text = text.replace('¥', '').replace('￥', '').replace(',', '').replace('元', '')
                 
                 # 提取税率
                 tax_rate_match = re.search(r'(\d{1,2})%', text)
@@ -176,57 +176,119 @@ class OCRService:
                 for match in sci_matches:
                     try:
                         number = float(match.group())
-                        if number > 1.0:
+                        if number > 0 and number <= 1000000:  # 添加上限
                             numbers.append((number, text, pos))
                             logger.info(f"找到科学计数法数字: {number}")
                     except ValueError:
                         continue
                 
-                # 2. 处理普通数字格式
-                matches = re.finditer(r'(\d+\.\d{2})', text)
-                for match in matches:
-                    try:
-                        number = float(match.group(1))
-                        if number > 1.0:
-                            numbers.append((number, text, pos))
-                            logger.info(f"找到数字: {number}")
-                    except ValueError:
-                        continue
+                # 2. 处理普通数字格式（支持更多格式）
+                number_patterns = [
+                    r'(\d+\.\d{2})',  # 标准两位小数
+                    r'(\d+\.\d{1,4})',  # 1-4位小数
+                    r'(\d{3,})',  # 三位以上整数
+                ]
+                
+                for pattern in number_patterns:
+                    matches = re.finditer(pattern, text)
+                    for match in matches:
+                        try:
+                            number = float(match.group(1))
+                            if number > 0 and number <= 1000000:  # 添加上限
+                                numbers.append((number, text, pos))
+                                logger.info(f"找到数字: {number}")
+                        except ValueError:
+                            continue
 
             # 金额识别优化（移到最前面处理）
             amount_lines = set()  # 记录包含金额的行的y坐标
+            amount_positions = set()  # 记录已识别为金额的数字位置
             
             # 先找到所有可能的金额行
             for text, confidence, pos in texts_with_pos:
-                if "¥" in text or "￥" in text:
+                # 扩展金额行判断条件
+                if any(char in text for char in ["¥", "￥", "元"]) or \
+                   any(keyword in text for keyword in ["金额", "税额", "合计", "小计", "价税", "总额", "（小写）", "￥"]):
                     amount_lines.add(pos[0][1])
                     logger.info(f"找到金额行: {text} at y={pos[0][1]}")
-                elif any(keyword in text for keyword in ["金额", "税额", "合计", "小计"]):
-                    amount_lines.add(pos[0][1])
-                    logger.info(f"找到金额相关行: {text} at y={pos[0][1]}")
 
             # 处理金额
             if numbers:
                 # 收集所有金额行的数字
                 amount_numbers = []
                 for num, text, pos in numbers:
-                    # 检查是否在金额行
-                    if any(abs(pos[0][1] - amount_y) < 15 for amount_y in amount_lines):
+                    # 检查是否在金额行或附近
+                    if any(abs(pos[0][1] - amount_y) < 25 for amount_y in amount_lines):  # 增加容差范围
+                        # 过滤掉明显错误的数字
+                        if 1 <= num <= 1000000 and round(num, 2) == num:  # 只接受最多两位小数的合理数字
+                            amount_numbers.append((num, pos))
+                            amount_positions.add(pos[0][1])  # 记录金额位置
+                            logger.info(f"找到金额行数字: {num}")
+                    
+                    # 如果数字格式正确且在合理范围内，也考虑为可能的金额
+                    elif 100 <= num <= 1000000 and round(num, 2) == num:
                         amount_numbers.append((num, pos))
-                        logger.info(f"找到金额行数字: {num}")
+                        amount_positions.add(pos[0][1])  # 记录金额位置
+                        logger.info(f"找到可能的金额: {num}")
                 
                 if amount_numbers:
                     # 按数值大小排序
                     amount_numbers.sort(key=lambda x: x[0])
-                    # 找到最大的两个数
+                    
+                    # 尝试多种方法识别金额和税额
+                    amount_tax_pairs = []
+                    
+                    # 1. 基于税率关系
+                    for i in range(len(amount_numbers)):
+                        for j in range(i + 1, len(amount_numbers)):
+                            amount = amount_numbers[i][0]
+                            tax = amount_numbers[j][0]
+                            tax_rate = tax / amount
+                            # 更严格的税率判断
+                            if 0.03 <= tax_rate <= 0.17 and tax < amount:
+                                amount_tax_pairs.append((amount, tax, tax_rate))
+                    
+                    # 2. 基于位置关系和税率
                     if len(amount_numbers) >= 2:
-                        amount = amount_numbers[-2][0]
-                        tax = amount_numbers[-1][0]
-                        # 验证税率是否合理（5%-17%）
-                        if 0.05 <= tax/amount <= 0.17:
-                            invoice_info["total_amount"] = f"{amount:.2f}"
-                            invoice_info["tax_amount"] = f"{tax:.2f}"
-                            logger.info(f"识别到金额: {amount} 和税额: {tax}")
+                        for i in range(len(amount_numbers) - 1):
+                            amount = amount_numbers[i][0]
+                            tax = amount_numbers[i + 1][0]
+                            tax_rate = tax / amount
+                            if 0.03 <= tax_rate <= 0.17 and tax < amount:
+                                # 检查y坐标是否接近
+                                if abs(amount_numbers[i][1][0][1] - amount_numbers[i + 1][1][0][1]) < 20:
+                                    amount_tax_pairs.append((amount, tax, tax_rate))
+                    
+                    # 选择最合适的金额和税额
+                    if amount_tax_pairs:
+                        # 优先选择标准税率（13%、6%）附近的配对
+                        def tax_rate_score(rate):
+                            if abs(rate - 0.13) <= 0.01: return 0
+                            if abs(rate - 0.06) <= 0.01: return 1
+                            return abs(rate - 0.13)
+                        
+                        amount_tax_pairs.sort(key=lambda x: tax_rate_score(x[2]))
+                        best_match = amount_tax_pairs[0]
+                        invoice_info["total_amount"] = f"{best_match[0]:.2f}"
+                        invoice_info["tax_amount"] = f"{best_match[1]:.2f}"
+                        logger.info(f"找到最佳匹配金额: {best_match[0]} 和税额: {best_match[1]}, 税率: {best_match[2]:.2%}")
+                    else:
+                        # 如果没有找到合适的配对，尝试使用单个数字
+                        for num, pos in amount_numbers:
+                            # 检查数字格式是否符合金额特征
+                            if round(num, 2) == num and 100 <= num <= 1000000:
+                                # 查找附近是否有税率信息
+                                for text, conf, text_pos in texts_with_pos:
+                                    if abs(text_pos[0][1] - pos[0][1]) < 30:
+                                        if "%" in text:
+                                            tax_match = re.search(r'(\d+)%', text)
+                                            if tax_match:
+                                                tax_rate = float(tax_match.group(1)) / 100
+                                                tax = round(num * tax_rate, 2)
+                                                invoice_info["total_amount"] = f"{num:.2f}"
+                                                invoice_info["tax_amount"] = f"{tax:.2f}"
+                                                logger.info(f"基于税率计算找到金额: {num} 和税额: {tax}")
+                                                break
 
             # 商品明细处理优化
             items_started = False
@@ -250,8 +312,9 @@ class OCRService:
                 text = text.strip()
                 text_y = pos[0][1]
                 
-                # 跳过金额行
-                if any(abs(text_y - amount_y) < 15 for amount_y in amount_lines):
+                # 跳过金额行和已识别为金额的位置
+                if any(abs(text_y - amount_y) < 25 for amount_y in amount_lines) or \
+                   text_y in amount_positions:
                     continue
                 
                 # 跳过无效内容
@@ -518,7 +581,7 @@ class OCRService:
                                     amount = price
                                     break
                 
-                # 如果找到了单价，计算金额
+                # 如果找到了单，计算金额
                 if unit_price and not amount:
                     amount = quantity * unit_price
                 

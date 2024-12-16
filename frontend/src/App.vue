@@ -1,132 +1,68 @@
 <template>
-  <el-config-provider :locale="zhCn">
-    <div class="app-container">
-      <el-container>
-        <!-- 头部 -->
-        <el-header height="60px">
-          <div class="header-content">
-            <div class="logo">
-              <h1>智慧金融数据采集系统</h1>
-            </div>
-            <el-menu
-              mode="horizontal"
-              :router="true"
-              :default-active="activeMenu"
-            >
-              <el-menu-item index="/upload">
-                <el-icon><upload-filled /></el-icon>
-                发票上传
-              </el-menu-item>
-              <el-menu-item index="/list">
-                <el-icon><document /></el-icon>
-                发票列表
-              </el-menu-item>
-            </el-menu>
-          </div>
-        </el-header>
-
-        <!-- 主要内容区 -->
-        <el-main>
-          <router-view v-slot="{ Component }">
-            <transition name="fade" mode="out-in">
-              <component :is="Component" />
-            </transition>
-          </router-view>
-        </el-main>
-
-        <!-- 页脚 -->
-        <el-footer height="60px">
-          <div class="footer-content">
-            <p>© 2024 智慧金融数据采集系统 v1.0.0</p>
-          </div>
-        </el-footer>
-      </el-container>
-    </div>
-  </el-config-provider>
+  <el-container class="app-wrapper">
+    <el-aside width="200px">
+      <el-menu
+        router
+        :default-active="$route.path"
+        class="el-menu-vertical"
+      >
+        <el-menu-item index="/invoices">
+          <el-icon><Receipt /></el-icon>
+          <span>发票管理</span>
+        </el-menu-item>
+        <el-menu-item index="/upload">
+          <el-icon><Upload /></el-icon>
+          <span>发票上传</span>
+        </el-menu-item>
+        <el-menu-item index="/bank-statements">
+          <el-icon><Money /></el-icon>
+          <span>银行流水管理</span>
+        </el-menu-item>
+      </el-menu>
+    </el-aside>
+    <el-container>
+      <el-header>
+        <div class="header-title">智慧金融数据采集系统</div>
+      </el-header>
+      <el-main>
+        <router-view></router-view>
+      </el-main>
+    </el-container>
+  </el-container>
 </template>
 
 <script setup>
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
-import { UploadFilled } from '@element-plus/icons-vue'
-import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
-
-const route = useRoute()
-const activeMenu = computed(() => route.path)
+import { Receipt, Upload, Money } from '@element-plus/icons-vue'
 </script>
 
 <style>
-html, body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen,
-    Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  background-color: #f0f2f5;
+.app-wrapper {
+  height: 100vh;
 }
 
-#app {
-  height: 100%;
+.el-aside {
+  background-color: #304156;
+  color: #fff;
 }
 
-.app-container {
-  min-height: 100vh;
-}
-
-.el-container {
-  min-height: 100vh;
+.el-menu {
+  border-right: none;
 }
 
 .el-header {
   background-color: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  position: relative;
-  z-index: 1;
+  color: #333;
+  line-height: 60px;
+  border-bottom: 1px solid #dcdfe6;
 }
 
-.header-content {
-  max-width: 1200px;
-  margin: 0 auto;
-  display: flex;
-  align-items: center;
-  height: 100%;
-}
-
-.logo {
-  margin-right: 40px;
-}
-
-.logo h1 {
-  margin: 0;
-  font-size: 20px;
-  color: #409EFF;
+.header-title {
+  font-size: 18px;
+  font-weight: bold;
 }
 
 .el-main {
-  padding: 20px;
   background-color: #f0f2f5;
-}
-
-.el-footer {
-  background-color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.footer-content {
-  text-align: center;
-  color: #909399;
-}
-
-/* 路由过渡动画 */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.3s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
+  padding: 20px;
 }
 </style> 

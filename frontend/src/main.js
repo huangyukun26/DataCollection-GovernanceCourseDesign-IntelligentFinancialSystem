@@ -5,6 +5,7 @@ import App from './App.vue'
 import router from './router'
 import axios from 'axios'
 import * as ElementPlusIconsVue from '@element-plus/icons-vue'
+import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
 
 // 处理 ResizeObserver 错误
 const debounce = (fn, delay) => {
@@ -67,7 +68,8 @@ for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
 // 配置Element Plus
 app.use(ElementPlus, {
     size: 'default',
-    zIndex: 3000
+    zIndex: 3000,
+    locale: zhCn,
 })
 
 app.use(router)

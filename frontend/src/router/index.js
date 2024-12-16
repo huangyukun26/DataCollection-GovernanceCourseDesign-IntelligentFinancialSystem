@@ -1,27 +1,30 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import InvoiceUpload from '../components/InvoiceUpload.vue'
 import InvoiceList from '../components/InvoiceList.vue'
+import InvoiceUpload from '../components/InvoiceUpload.vue'
+import BankStatementList from '../views/bank-statement/List.vue'
 
 const routes = [
   {
     path: '/',
-    redirect: '/upload'
+    redirect: '/invoices'
+  },
+  {
+    path: '/invoices',
+    name: 'InvoiceList',
+    component: InvoiceList,
+    meta: { title: '发票管理' }
   },
   {
     path: '/upload',
-    name: 'upload',
+    name: 'InvoiceUpload',
     component: InvoiceUpload,
-    meta: {
-      title: '发票上传'
-    }
+    meta: { title: '发票上传' }
   },
   {
-    path: '/list',
-    name: 'list',
-    component: InvoiceList,
-    meta: {
-      title: '发票列表'
-    }
+    path: '/bank-statements',
+    name: 'BankStatementList',
+    component: BankStatementList,
+    meta: { title: '银行流水管理' }
   }
 ]
 
@@ -30,9 +33,8 @@ const router = createRouter({
   routes
 })
 
-// 路由标题
 router.beforeEach((to, from, next) => {
-  document.title = to.meta.title ? `${to.meta.title} - 智慧金融数据采集系统` : '智慧金融数据采集系统'
+  document.title = to.meta.title || '智慧金融数据采集系统'
   next()
 })
 

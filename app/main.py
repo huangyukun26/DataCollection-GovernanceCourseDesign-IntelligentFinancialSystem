@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.endpoints import invoice
+from app.api.endpoints import invoice, bank_statement
 from app.db.base_class import Base
 from app.db.session import engine
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -11,7 +11,7 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="智慧金融数据采集系统",
-    description="发票识别与管理系统",
+    description="发票识别与银行流水管理系统",
     version="1.0.0"
 )
 
@@ -32,6 +32,12 @@ app.include_router(
     invoice.router,
     prefix="/api/invoices",
     tags=["发票管理"]
+)
+
+app.include_router(
+    bank_statement.router,
+    prefix="/api/bank-statements",
+    tags=["银行流水管理"]
 )
 
 @app.get("/")

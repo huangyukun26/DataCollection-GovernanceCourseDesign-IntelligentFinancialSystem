@@ -177,6 +177,9 @@
             <el-option label="北京银行" value="beijing_bank" />
             <el-option label="光大银行(版式1)" value="ceb_v1" />
             <el-option label="光大银行(版式2)" value="ceb_v2" />
+            <el-option label="建设银行(版式1)" value="ccb_v1" />
+            <el-option label="建设银行(版式2)" value="ccb_v2" />
+            <el-option label="建设银行(版式3)" value="ccb_v3" />
           </el-select>
         </el-form-item>
       </el-form>
@@ -451,7 +454,7 @@ const handlePreview = (row) => {
 
 // 删除
 const handleDelete = (row) => {
-  ElMessageBox.confirm("确定要删除这条记录吗？", "警告", {
+  ElMessageBox.confirm("确定要删除这条���录吗？", "警告", {
     confirmButtonText: "确定",
     cancelButtonText: "取消",
     type: "warning",

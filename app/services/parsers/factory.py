@@ -3,6 +3,9 @@ from .base import BankStatementParser
 from .beijing_bank import BeijingBankParser
 from .ceb_v1 import CEBV1Parser
 from .ceb_v2 import CEBV2Parser
+from .ccb_v1 import CCBV1Parser
+from .ccb_v2 import CCBV2Parser
+from .ccb_v3 import CCBV3Parser
 
 class BankParserFactory:
     """银行流水解析器工厂"""
@@ -10,8 +13,11 @@ class BankParserFactory:
     # 注册解析器映射
     _parsers: Dict[str, Type[BankStatementParser]] = {
         'beijing_bank': BeijingBankParser,
-        'ceb_v1': CEBV1Parser,  # 光大银行版式1
-        'ceb_v2': CEBV2Parser   # 光大银行版式2
+        'ceb_v1': CEBV1Parser,      # 光大银行版式1
+        'ceb_v2': CEBV2Parser,      # 光大银行版式2
+        'ccb_v1': CCBV1Parser,      # 建设银行版式1
+        'ccb_v2': CCBV2Parser,      # 建设银行版式2
+        'ccb_v3': CCBV3Parser       # 建设银行版式3
     }
     
     @classmethod

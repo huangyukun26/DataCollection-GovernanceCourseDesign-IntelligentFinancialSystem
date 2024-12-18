@@ -5,6 +5,8 @@ from uuid import uuid4
 import os
 from minio import Minio
 from dotenv import load_dotenv
+import logging
+from logging.handlers import RotatingFileHandler
 
 from app.models.bank_statement import BankStatement
 from app.schemas.bank_statement import BankStatementCreate, BankStatementUpdate
@@ -12,6 +14,30 @@ from .parsers import BankParserFactory
 from .parsers.base import BankStatementParser
 
 load_dotenv()
+
+# 配置日志
+log_dir = "logs"
+if not os.path.exists(log_dir):
+    os.makedirs(log_dir)
+
+logger = logging.getLogger("bank_statement_service")
+logger.setLevel(logging.DEBUG)
+
+# 文件处理器 - 按日期滚动
+file_handler = RotatingFileHandler(
+    os.path.join(log_dir, "bank_statement_service.log"),
+    maxBytes=10*1024*1024,  # 10MB
+    backupCount=5,
+    encoding='utf-8'
+)
+file_handler.setLevel(logging.DEBUG)
+
+# 格式化器
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+file_handler.setFormatter(formatter)
+
+# 添加处理器
+logger.addHandler(file_handler)
 
 class MinioStorage:
     def __init__(self):
@@ -50,7 +76,7 @@ class MinioStorage:
             self.client.remove_object(bucket, file_name)
             return True
         except Exception as e:
-            print(f"删除文件失败: {str(e)}")
+            logger.error(f"删除文件失败: {str(e)}")
             return False
 
 class BankStatementService:
@@ -58,33 +84,48 @@ class BankStatementService:
         self.storage = MinioStorage()
     
     def process_bank_statement(self, image_data: bytes, bank_type: str = "beijing_bank") -> List[dict]:
-        """处理银行流水图片
-        
-        Args:
-            image_data: 图片二进制数据
-            bank_type: 银行类型，默认为北京银行
-            
-        Returns:
-            解析后的交易记录列表
-        """
+        """处理银行流水图片"""
         try:
+            logger.info("\n" + "="*50)
+            logger.info(f"[处理银行流水] 开始处理，bank_type: {bank_type}")
+            logger.info("="*50)
+            
             # 获取对应的解析器
             parser = BankParserFactory.get_parser(bank_type)
+            logger.info(f"[处理银行流水] 使用解析器: {parser.__class__.__name__}")
             
             # 1. OCR识别和初步解析
+            logger.info("\n" + "-"*30 + " OCR识别开始 " + "-"*30)
             raw_data = parser.parse(image_data)
+            logger.info("-"*30 + " OCR识别完成 " + "-"*30 + "\n")
             
             # 2. 数据清洗
+            logger.info("\n" + "-"*30 + " 数据清洗开始 " + "-"*30)
             transactions = parser.clean_data(raw_data)
+            logger.info(f"[数据清洗] 清洗结果示例（第一条记录）:")
+            if transactions:
+                logger.info(f"账号: {transactions[0].get('account_number')}")
+                logger.info(f"日期: {transactions[0].get('transaction_date')}")
+                logger.info(f"类型: {transactions[0].get('transaction_type')}")
+                logger.info(f"金额: {transactions[0].get('amount')}")
+                logger.info(f"余额: {transactions[0].get('balance')}")
+                logger.info(f"对手方: {transactions[0].get('counterparty')}")
+                logger.info(f"描述: {transactions[0].get('description')}")
+            logger.info("-"*30 + " 数据清洗完成 " + "-"*30 + "\n")
             
             # 3. 数据验证
+            logger.info("\n" + "-"*30 + " 数据验证开始 " + "-"*30)
             if not parser.validate_data(transactions):
                 raise Exception("数据验证失败")
+            logger.info("-"*30 + " 数据验证完成 " + "-"*30 + "\n")
             
+            logger.info(f"[处理银行流水] 成功处理，解析到{len(transactions)}条记录")
+            logger.info("="*50 + "\n")
             return transactions
             
         except Exception as e:
-            print(f"处理银行流水图片失败: {str(e)}")
+            logger.error(f"\n[错误] 处理银行流水图片失败: {str(e)}")
+            logger.error("="*50 + "\n")
             raise Exception(f"处理银行流水图片失败: {str(e)}")
     
     def create_bank_statement(
@@ -94,29 +135,26 @@ class BankStatementService:
         file_name: str,
         bank_type: str = "beijing_bank"
     ) -> List[BankStatement]:
-        """创建银行流水记录
-        
-        Args:
-            db: 数据库会话
-            file_data: 文件二进制数据
-            file_name: 文件名
-            bank_type: 银行类型
-            
-        Returns:
-            创建的银行流水记录列表
-        """
+        """创建银行流水记录"""
         try:
+            logger.info("\n" + "="*50)
+            logger.info(f"[创建银行流水记录] 开始创建，bank_type: {bank_type}")
+            logger.info("="*50)
+            
             # 1. 上传文件
             file_path = self.storage.upload_file(
                 file_data,
                 f"bank_statements/{datetime.now().strftime('%Y%m%d')}/{uuid4()}_{file_name}",
                 "image/jpeg"
             )
+            logger.info(f"[创建银行流水记录] 文件上传成功: {file_path}")
             
             # 2. 处理图片
             transactions = self.process_bank_statement(file_data, bank_type)
+            logger.info(f"[创建银行流水记录] 图片处理完成，获取到{len(transactions)}条交易记录")
             
             # 3. 保存到数据库
+            logger.info("\n" + "-"*30 + " 保存到数据库开始 " + "-"*30)
             db_statements = []
             for trans in transactions:
                 db_statement = BankStatement(
@@ -135,9 +173,13 @@ class BankStatementService:
                 db_statements.append(db_statement)
             
             db.commit()
+            logger.info("-"*30 + " 保存到数据库完成 " + "-"*30 + "\n")
+            logger.info("="*50 + "\n")
             return db_statements
             
         except Exception as e:
+            logger.error(f"\n[错误] 创建银行流水记录失败: {str(e)}")
+            logger.error("="*50 + "\n")
             db.rollback()
             # 删除已上传的文件
             if "file_path" in locals():
@@ -258,3 +300,37 @@ class BankStatementService:
             "net_amount": total_income - total_expense,
             "transaction_count": len(statements)
         }
+        
+    def batch_delete_bank_statements(self, db: Session, statement_ids: List[int]) -> bool:
+        """批量删除银行流水记录
+        
+        Args:
+            db: 数据库会话
+            statement_ids: 要删除的记录ID列表
+            
+        Returns:
+            是否删除成功
+        """
+        try:
+            # 获取要删除的记录
+            statements = db.query(BankStatement).filter(
+                BankStatement.id.in_(statement_ids)
+            ).all()
+            
+            # 删除关联的文件
+            for statement in statements:
+                if statement.file_path:
+                    self.storage.delete_file(statement.file_path)
+            
+            # 批量删除记录
+            db.query(BankStatement).filter(
+                BankStatement.id.in_(statement_ids)
+            ).delete(synchronize_session=False)
+            
+            db.commit()
+            return True
+            
+        except Exception as e:
+            db.rollback()
+            print(f"批量删除失败: {str(e)}")
+            raise Exception(f"批量删除失败: {str(e)}")

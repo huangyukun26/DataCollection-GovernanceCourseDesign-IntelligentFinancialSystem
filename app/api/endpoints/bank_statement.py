@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
@@ -23,7 +23,7 @@ bank_statement_service = BankStatementService()
 @router.post("/upload/", response_model=BankStatement)
 async def upload_bank_statement(
     file: UploadFile = File(...),
-    bank_type: str = "beijing_bank",
+    bank_type: str = Form(..., description="银行类型：beijing_bank, ceb_v1, ceb_v2"),
     db: Session = Depends(get_db)
 ):
     """上传银行流水"""

@@ -11,7 +11,10 @@
       <!-- 搜索表单 -->
       <el-form :inline="true" :model="searchForm" class="search-form">
         <el-form-item label="账号">
-          <el-input v-model="searchForm.accountNumber" placeholder="请输入账号"></el-input>
+          <el-input
+            v-model="searchForm.accountNumber"
+            placeholder="请输入账号"
+          ></el-input>
         </el-form-item>
         <el-form-item label="日期范围">
           <el-date-picker
@@ -34,19 +37,26 @@
         <el-col :span="6">
           <el-card shadow="hover">
             <template #header>总收入</template>
-            <span class="amount income">{{ formatAmount(statistics.totalIncome) }}</span>
+            <span class="amount income">{{
+              formatAmount(statistics.totalIncome)
+            }}</span>
           </el-card>
         </el-col>
         <el-col :span="6">
           <el-card shadow="hover">
             <template #header>总支出</template>
-            <span class="amount expense">{{ formatAmount(statistics.totalExpense) }}</span>
+            <span class="amount expense">{{
+              formatAmount(statistics.totalExpense)
+            }}</span>
           </el-card>
         </el-col>
         <el-col :span="6">
           <el-card shadow="hover">
             <template #header>净额</template>
-            <span class="amount" :class="statistics.netAmount >= 0 ? 'income' : 'expense'">
+            <span
+              class="amount"
+              :class="statistics.netAmount >= 0 ? 'income' : 'expense'"
+            >
               {{ formatAmount(statistics.netAmount) }}
             </span>
           </el-card>
@@ -82,7 +92,11 @@
       >
         <el-table-column type="selection" width="55"></el-table-column>
         <el-table-column prop="id" label="ID" width="80"></el-table-column>
-        <el-table-column prop="accountNumber" label="账号" width="180"></el-table-column>
+        <el-table-column
+          prop="account_number"
+          label="账号"
+          width="180"
+        ></el-table-column>
         <el-table-column prop="transactionDate" label="交易日期" width="180">
           <template #default="scope">
             {{ formatDate(scope.row.transaction_date) }}
@@ -90,14 +104,22 @@
         </el-table-column>
         <el-table-column prop="transactionType" label="交易类型" width="100">
           <template #default="scope">
-            <el-tag :type="scope.row.transaction_type === '收入' ? 'success' : 'danger'">
+            <el-tag
+              :type="
+                scope.row.transaction_type === '收入' ? 'success' : 'danger'
+              "
+            >
               {{ scope.row.transaction_type }}
             </el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="amount" label="金额" width="150">
           <template #default="scope">
-            <span :class="scope.row.transaction_type === '收入' ? 'income' : 'expense'">
+            <span
+              :class="
+                scope.row.transaction_type === '收入' ? 'income' : 'expense'
+              "
+            >
               {{ formatAmount(scope.row.amount) }}
             </span>
           </template>
@@ -107,17 +129,25 @@
             {{ formatAmount(scope.row.balance) }}
           </template>
         </el-table-column>
-        <el-table-column prop="counterparty" label="交易对手方"></el-table-column>
+        <el-table-column
+          prop="counterparty"
+          label="交易对手方"
+        ></el-table-column>
         <el-table-column prop="description" label="交易描述"></el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="scope">
-            <el-button size="small" @click="handleEdit(scope.row)">编辑</el-button>
-            <el-button size="small" @click="handlePreview(scope.row)">预览</el-button>
+            <el-button size="small" @click="handleEdit(scope.row)"
+              >编辑</el-button
+            >
+            <el-button size="small" @click="handlePreview(scope.row)"
+              >预览</el-button
+            >
             <el-button
               size="small"
               type="danger"
               @click="handleDelete(scope.row)"
-            >删除</el-button>
+              >删除</el-button
+            >
           </template>
         </el-table-column>
       </el-table>
@@ -137,28 +167,36 @@
     </el-card>
 
     <!-- 上传对话框 -->
-    <el-dialog
-      v-model="uploadDialogVisible"
-      title="上传银行流水"
-      width="500px"
-    >
+    <el-dialog v-model="uploadDialogVisible" title="上传银行流水" width="500px">
+      <el-form :model="uploadForm" class="upload-form">
+        <el-form-item label="银行类型" required>
+          <el-select
+            v-model="uploadForm.bank_type"
+            placeholder="请选择银行类型"
+          >
+            <el-option label="北京银行" value="beijing_bank" />
+            <el-option label="光大银行(版式1)" value="ceb_v1" />
+            <el-option label="光大银行(版式2)" value="ceb_v2" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+
       <el-upload
         class="upload-demo"
         drag
         action="/api/bank-statements/upload/"
         :headers="{
-          'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
+          Accept: 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
         }"
+        :data="{ bank_type: uploadForm.bank_type }"
         name="file"
         :on-success="handleUploadSuccess"
         :on-error="handleUploadError"
         :before-upload="beforeUpload"
       >
         <el-icon class="el-icon--upload"><upload-filled /></el-icon>
-        <div class="el-upload__text">
-          将文件拖到此处，或<em>点击上传</em>
-        </div>
+        <div class="el-upload__text">将文件拖到此处，或<em>点击上传</em></div>
         <template #tip>
           <div class="el-upload__tip">
             只能上传jpg/png/pdf文件，且不超过10MB
@@ -241,144 +279,143 @@
       @closed="handleDialogClosed"
     >
       <div class="preview-container">
-        <img :src="previewUrl" alt="银行流水单" style="width: 100%;">
+        <img :src="previewUrl" alt="银行流水单" style="width: 100%" />
       </div>
     </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, reactive } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { UploadFilled } from '@element-plus/icons-vue'
-import axios from 'axios'
+import { ref, onMounted, reactive } from "vue";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { UploadFilled } from "@element-plus/icons-vue";
+import axios from "axios";
 
 // 数据定义
-const loading = ref(false)
-const tableData = ref([])
-const currentPage = ref(1)
-const pageSize = ref(10)
-const total = ref(0)
-const uploadDialogVisible = ref(false)
-const editDialogVisible = ref(false)
-const previewDialogVisible = ref(false)
-const previewUrl = ref('')
-const selectedRows = ref([])
+const loading = ref(false);
+const tableData = ref([]);
+const currentPage = ref(1);
+const pageSize = ref(10);
+const total = ref(0);
+const uploadDialogVisible = ref(false);
+const editDialogVisible = ref(false);
+const previewDialogVisible = ref(false);
+const previewUrl = ref("");
+const selectedRows = ref([]);
 const statistics = reactive({
   totalIncome: 0,
   totalExpense: 0,
   netAmount: 0,
-  transactionCount: 0
-})
+  transactionCount: 0,
+});
 
 // 搜索表单
 const searchForm = reactive({
-  accountNumber: '',
-  dateRange: []
-})
+  accountNumber: "",
+  dateRange: [],
+});
 
 // 编辑表单
 const editForm = reactive({
   id: null,
-  accountNumber: '',
-  transactionDate: '',
-  transactionType: '',
+  accountNumber: "",
+  transactionDate: "",
+  transactionType: "",
   amount: 0,
   balance: 0,
-  counterparty: '',
-  description: ''
-})
+  counterparty: "",
+  description: "",
+});
 
 // 编辑表单校验规则
 const editRules = {
-  accountNumber: [
-    { required: true, message: '请输入账号', trigger: 'blur' }
-  ],
+  accountNumber: [{ required: true, message: "请输入账号", trigger: "blur" }],
   transactionDate: [
-    { required: true, message: '请选择交易日期', trigger: 'change' }
+    { required: true, message: "请选择交易日期", trigger: "change" },
   ],
   transactionType: [
-    { required: true, message: '请选择交易类型', trigger: 'change' }
+    { required: true, message: "请选择交易类型", trigger: "change" },
   ],
-  amount: [
-    { required: true, message: '请输入金额', trigger: 'blur' }
-  ]
-}
+  amount: [{ required: true, message: "请输入金额", trigger: "blur" }],
+};
 
 // 获取数据列表
 const fetchData = async () => {
-  loading.value = true
+  loading.value = true;
   try {
     const params = {
       skip: (currentPage.value - 1) * pageSize.value,
       limit: pageSize.value,
       account_number: searchForm.accountNumber || undefined,
       start_date: searchForm.dateRange?.[0] || undefined,
-      end_date: searchForm.dateRange?.[1] || undefined
-    }
-    const response = await axios.get('/api/bank-statements/list/', { params })
-    if (response.data.status === 'success') {
-      tableData.value = response.data.data
-      total.value = response.data.total
+      end_date: searchForm.dateRange?.[1] || undefined,
+    };
+    const response = await axios.get("/api/bank-statements/list/", { params });
+    if (response.data.status === "success") {
+      tableData.value = response.data.data;
+      total.value = response.data.total;
       // 获取统计数据
-      const statsResponse = await axios.get('/api/bank-statements/statistics/', { params })
-      if (statsResponse.data.status === 'success') {
-        Object.assign(statistics, statsResponse.data.data)
+      const statsResponse = await axios.get(
+        "/api/bank-statements/statistics/",
+        { params }
+      );
+      if (statsResponse.data.status === "success") {
+        Object.assign(statistics, statsResponse.data.data);
       }
     } else {
-      ElMessage.error('获取数据失败')
+      ElMessage.error("获取数据失败");
     }
   } catch (error) {
-    console.error('获取数据失败:', error)
-    ElMessage.error(error.response?.data?.detail || '获取数据失败')
+    console.error("获取数据失败:", error);
+    ElMessage.error(error.response?.data?.detail || "获取数据失败");
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 // 搜索
 const handleSearch = () => {
-  currentPage.value = 1
-  fetchData()
-}
+  currentPage.value = 1;
+  fetchData();
+};
 
 // 重置搜索
 const resetSearch = () => {
-  searchForm.accountNumber = ''
-  searchForm.dateRange = []
-  handleSearch()
-}
+  searchForm.accountNumber = "";
+  searchForm.dateRange = [];
+  handleSearch();
+};
 
 // 上传相关
 const handleUpload = () => {
-  uploadDialogVisible.value = true
-}
+  uploadDialogVisible.value = true;
+};
 
 const beforeUpload = (file) => {
-  const isImage = file.type.startsWith('image/')
-  const isPDF = file.type === 'application/pdf'
-  const isLt10M = file.size / 1024 / 1024 < 10
+  const isImage = file.type.startsWith("image/");
+  const isPDF = file.type === "application/pdf";
+  const isLt10M = file.size / 1024 / 1024 < 10;
 
   if (!isImage && !isPDF) {
-    ElMessage.error('上传文件只能是图片或PDF格式!')
-    return false
+    ElMessage.error("上传文件只能是图片或PDF格式!");
+    return false;
   }
   if (!isLt10M) {
-    ElMessage.error('上传文件大小不能超过 10MB!')
-    return false
+    ElMessage.error("上传文件大小不能超过 10MB!");
+    return false;
   }
-  return true
-}
+  return true;
+};
 
 const handleUploadSuccess = () => {
-  ElMessage.success('上传成功')
-  uploadDialogVisible.value = false
-  fetchData()
-}
+  ElMessage.success("上传成功");
+  uploadDialogVisible.value = false;
+  fetchData();
+};
 
-const handleUploadError = () => {
-  ElMessage.error('上传失败')
-}
+const handleUploadError = (error) => {
+  ElMessage.error(`上传失败: ${error.message || "未知错误"}`);
+};
 
 // 编辑相关
 const handleEdit = (row) => {
@@ -390,121 +427,125 @@ const handleEdit = (row) => {
     amount: row.amount,
     balance: row.balance,
     counterparty: row.counterparty,
-    description: row.description
-  })
-  editDialogVisible.value = true
-}
+    description: row.description,
+  });
+  editDialogVisible.value = true;
+};
 
 const submitEdit = async () => {
   try {
-    await axios.put(`/api/bank-statements/${editForm.id}`, editForm)
-    ElMessage.success('更新成功')
-    editDialogVisible.value = false
-    fetchData()
+    await axios.put(`/api/bank-statements/${editForm.id}`, editForm);
+    ElMessage.success("更新成功");
+    editDialogVisible.value = false;
+    fetchData();
   } catch (error) {
-    ElMessage.error('更新失败')
+    ElMessage.error("更新失败");
   }
-}
+};
 
 // 预览相关
 const handlePreview = (row) => {
-  previewUrl.value = row.file_path
-  previewDialogVisible.value = true
-}
+  previewUrl.value = row.file_path;
+  previewDialogVisible.value = true;
+};
 
 // 删除
 const handleDelete = (row) => {
-  ElMessageBox.confirm(
-    '确定要删除这条记录吗？',
-    '警告',
-    {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning',
-    }
-  ).then(async () => {
+  ElMessageBox.confirm("确定要删除这条记录吗？", "警告", {
+    confirmButtonText: "确定",
+    cancelButtonText: "取消",
+    type: "warning",
+  }).then(async () => {
     try {
-      await axios.delete(`/api/bank-statements/${row.id}`)
-      ElMessage.success('删除成功')
-      fetchData()
+      await axios.delete(`/api/bank-statements/${row.id}`);
+      ElMessage.success("删除成功");
+      fetchData();
     } catch (error) {
-      ElMessage.error('删除失败')
+      ElMessage.error("删除失败");
     }
-  })
-}
+  });
+};
 
 // 批量删除相关
 const handleSelectionChange = (selection) => {
-  selectedRows.value = selection
-}
+  selectedRows.value = selection;
+};
 
 const handleBatchDelete = () => {
   if (selectedRows.value.length === 0) {
-    return
+    return;
   }
 
   ElMessageBox.confirm(
     `确定要删除选中的 ${selectedRows.value.length} 条记录吗？`,
-    '警告',
+    "警告",
     {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning',
+      confirmButtonText: "确定",
+      cancelButtonText: "取消",
+      type: "warning",
     }
   ).then(async () => {
     try {
-      const ids = selectedRows.value.map(row => row.id)
-      await axios.post('/api/bank-statements/batch-delete/', { ids: ids })
-      ElMessage.success('批量删除成功')
-      selectedRows.value = []
-      fetchData()
+      const ids = selectedRows.value.map((row) => row.id);
+      await axios.post("/api/bank-statements/batch-delete/", { ids: ids });
+      ElMessage.success("批量删除成功");
+      selectedRows.value = [];
+      fetchData();
     } catch (error) {
-      ElMessage.error(error.response?.data?.detail || '批量删除失败')
+      ElMessage.error(error.response?.data?.detail || "批量删除失败");
     }
-  })
-}
+  });
+};
 
 // 分页相关
 const handleSizeChange = (val) => {
-  pageSize.value = val
-  fetchData()
-}
+  pageSize.value = val;
+  fetchData();
+};
 
 const handleCurrentChange = (val) => {
-  currentPage.value = val
-  fetchData()
-}
+  currentPage.value = val;
+  fetchData();
+};
 
 // 格式化函数
 const formatDate = (date) => {
-  if (!date) return ''
-  return new Date(date).toLocaleString()
-}
+  if (!date) return "";
+  return new Date(date).toLocaleString();
+};
 
 const formatAmount = (amount) => {
-  if (amount === undefined || amount === null) return '0.00'
-  return amount.toFixed(2)
-}
+  if (amount === undefined || amount === null) return "0.00";
+  return amount.toFixed(2);
+};
 
 // 对话框关闭处理
 const handleDialogClosed = () => {
   // 清理相关数据
   if (!editDialogVisible.value) {
-    Object.keys(editForm).forEach(key => {
-      editForm[key] = ''
-    })
-    editForm.amount = 0
-    editForm.balance = 0
+    Object.keys(editForm).forEach((key) => {
+      editForm[key] = "";
+    });
+    editForm.amount = 0;
+    editForm.balance = 0;
   }
   if (!previewDialogVisible.value) {
-    previewUrl.value = ''
+    previewUrl.value = "";
   }
-}
+  if (!uploadDialogVisible.value) {
+    // 重置上传表单
+    uploadForm.bank_type = "";
+  }
+};
 
 // 修改初始化
 onMounted(() => {
-  fetchData()
-})
+  fetchData();
+});
+
+const uploadForm = reactive({
+  bank_type: "", // 初始值设为空，强制用户选择
+});
 </script>
 
 <style scoped>
@@ -536,17 +577,17 @@ onMounted(() => {
 }
 
 .income {
-  color: #67C23A;
+  color: #67c23a;
 }
 
 .expense {
-  color: #F56C6C;
+  color: #f56c6c;
 }
 
 .count {
   font-size: 24px;
   font-weight: bold;
-  color: #409EFF;
+  color: #409eff;
 }
 
 .pagination {
@@ -560,4 +601,8 @@ onMounted(() => {
   align-items: center;
   min-height: 200px;
 }
-</style> 
+
+.upload-form {
+  margin-bottom: 20px;
+}
+</style>

@@ -4,7 +4,8 @@
       <el-form-item label="银行类型">
         <el-select v-model="form.bankType" placeholder="请选择银行类型">
           <el-option label="北京银行" value="beijing_bank" />
-          <!-- 后续添加其他银行选项 -->
+          <el-option label="光大银行(版式1)" value="ceb_v1" />
+          <el-option label="光大银行(版式2)" value="ceb_v2" />
         </el-select>
       </el-form-item>
       

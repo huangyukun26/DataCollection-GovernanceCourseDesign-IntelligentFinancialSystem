@@ -1,13 +1,17 @@
 from typing import Dict, Type
 from .base import BankStatementParser
 from .beijing_bank import BeijingBankParser
+from .ceb_v1 import CEBV1Parser
+from .ceb_v2 import CEBV2Parser
 
 class BankParserFactory:
     """银行流水解析器工厂"""
     
     # 注册解析器映射
     _parsers: Dict[str, Type[BankStatementParser]] = {
-        'beijing_bank': BeijingBankParser
+        'beijing_bank': BeijingBankParser,
+        'ceb_v1': CEBV1Parser,  # 光大银行版式1
+        'ceb_v2': CEBV2Parser   # 光大银行版式2
     }
     
     @classmethod

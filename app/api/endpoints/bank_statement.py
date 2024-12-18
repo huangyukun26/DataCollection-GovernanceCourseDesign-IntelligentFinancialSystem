@@ -23,6 +23,7 @@ bank_statement_service = BankStatementService()
 @router.post("/upload/", response_model=BankStatement)
 async def upload_bank_statement(
     file: UploadFile = File(...),
+    bank_type: str = "beijing_bank",
     db: Session = Depends(get_db)
 ):
     """上传银行流水"""
@@ -30,17 +31,15 @@ async def upload_bank_statement(
         # 读取文件内容
         file_content = await file.read()
         
-        # 创建空的statement_data(后续会通过OCR填充)
-        statement_data = BankStatementCreate()
-        
         # 创建银行流水记录
         result = bank_statement_service.create_bank_statement(
             db=db,
             file_data=file_content,
-            statement_data=statement_data
+            file_name=file.filename,
+            bank_type=bank_type
         )
         
-        return result
+        return result[0] if result else None
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -51,6 +50,7 @@ async def upload_bank_statement(
 async def list_bank_statements(
     skip: int = 0,
     limit: int = 100,
+    bank_type: Optional[str] = None,
     account_number: Optional[str] = None,
     start_date: Optional[datetime] = Query(None),
     end_date: Optional[datetime] = Query(None),
@@ -58,10 +58,11 @@ async def list_bank_statements(
 ):
     """获取银行流水列表"""
     try:
-        statements, total = bank_statement_service.get_bank_statements(
+        statements = bank_statement_service.get_bank_statements(
             db=db,
             skip=skip,
             limit=limit,
+            bank_type=bank_type,
             account_number=account_number,
             start_date=start_date,
             end_date=end_date
@@ -69,7 +70,7 @@ async def list_bank_statements(
         return {
             "status": "success",
             "data": statements,
-            "total": total
+            "total": len(statements)
         }
     except Exception as e:
         raise HTTPException(
@@ -101,7 +102,7 @@ async def update_bank_statement(
     statement = bank_statement_service.update_bank_statement(
         db=db,
         statement_id=statement_id,
-        statement_data=statement_data
+        statement=statement_data
     )
     if not statement:
         raise HTTPException(
@@ -127,6 +128,7 @@ async def delete_bank_statement(
 @router.get("/statistics/")
 async def get_statistics(
     account_number: Optional[str] = None,
+    bank_type: Optional[str] = None,
     start_date: Optional[datetime] = Query(None),
     end_date: Optional[datetime] = Query(None),
     db: Session = Depends(get_db)
@@ -136,6 +138,7 @@ async def get_statistics(
         stats = bank_statement_service.get_statistics(
             db=db,
             account_number=account_number,
+            bank_type=bank_type,
             start_date=start_date,
             end_date=end_date
         )

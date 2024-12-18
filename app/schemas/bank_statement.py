@@ -10,7 +10,7 @@ class BankStatementBase(BaseModel):
     balance: Optional[float] = Field(None, description="账户余额")
     counterparty: Optional[str] = None
     description: Optional[str] = None
-    bank_name: Optional[str] = None
+    bank_type: Optional[str] = None
     file_path: Optional[str] = None
 
     class Config:

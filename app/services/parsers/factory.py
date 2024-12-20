@@ -6,6 +6,9 @@ from .ceb_v2 import CEBV2Parser
 from .ccb_v1 import CCBV1Parser
 from .ccb_v2 import CCBV2Parser
 from .ccb_v3 import CCBV3Parser
+from .boc_v1 import BOCV1Parser
+from .boc_v2 import BOCV2Parser
+from .boc_v3 import BOCV3Parser
 
 class BankParserFactory:
     """银行流水解析器工厂"""
@@ -17,7 +20,10 @@ class BankParserFactory:
         'ceb_v2': CEBV2Parser,      # 光大银行版式2
         'ccb_v1': CCBV1Parser,      # 建设银行版式1
         'ccb_v2': CCBV2Parser,      # 建设银行版式2
-        'ccb_v3': CCBV3Parser       # 建设银行版式3
+        'ccb_v3': CCBV3Parser,      # 建设银行版式3
+        'boc_v1': BOCV1Parser,      # 交通银行版式1
+        'boc_v2': BOCV2Parser,      # 交通银行版式2
+        'boc_v3': BOCV3Parser       # 交通银行版式3
     }
     
     @classmethod
